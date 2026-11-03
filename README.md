@@ -107,3 +107,22 @@ nothing here witnesses that log), `failed` (exit 1; the JSON
 names the first divergent checkpoint, or the history / internal
 stage that failed). Step-by-step drill, including the forged-log
 exercise: `docs/anchor-drill.md` in the kernel repository.
+
+## Registering a new log
+
+Checkpoints are scheduled per log by the `keys.json` registry:
+each keys / maps name the log_ids it
+
+## Registering a new log
+
+Checkpoints are scheduled per log by the `keys.json` registry:
+each key's `signs_from` / `signs_until` maps name the log_ids it
+signs for, by checkpoint sequence. A log born after a rotation
+is not covered by any default — before (or when) its first
+checkpoint is published, add its window to the active key's
+`signs_from` (e.g. the gpu-queue live log, 2026-11-03: the
+successor key signs it from seq 0). A registry whose windows
+for a log do not partition that log's checkpoint sequence
+fails verification loudly, by design. This registry commit is
+that published statement; a `register-window` verb in the
+kernel tooling is future work.
