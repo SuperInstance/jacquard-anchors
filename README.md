@@ -19,26 +19,59 @@ whose signed body states, for one log: the log's identity
 format — body keys, envelope, verification procedure, honest
 limits — is spec section 15 in the kernel repository.
 
-## Operator public key
+## Operator public keys and the key registry
 
-Checkpoints in this repository are signed with Ed25519 under this
-operator key (raw 32-byte public key, lowercase hex):
+Checkpoints in this repository are signed with Ed25519. Which
+key must have signed which checkpoint is stated by the **key
+registry**, `keys.json` at the repository root (format
+`jacquard/anchor-keys/1`, spec section 15.3 of the kernel
+repository): per `log_id`, each key's `signs_from` /
+`signs_until` windows partition the checkpoint sequence, and a
+verifier refuses a checkpoint whose envelope key is not the
+scheduled key. Pin the registry (and the keys in it) through a
+channel you already trust — in a real dispute, confirm the hexes
+with the operator directly; do not trust a key merely because a
+checkpoint envelope carries it. The corresponding private keys
+are never in any repository; from the 2026-11-02 rotation they
+are passphrase-encrypted at rest on the operator's machine.
+
+`pubkey.txt` at the repository root names the *current* active
+key, one line, for tools:
+
+```
+ce805efd20de4b8a6f7bee1544c8db1173678cfbe19a3f9814315b48845f5072
+```
+
+### Rotation note — 2026-11-02 (spec 0.6, slice 21)
+
+The original operator key
 
 ```
 1aa240acef0058b732e6093e3728e65a6d95a4178f77664ea92772bfb3072be5
 ```
 
-The same hex is in `pubkey.txt` at the repository root, one line,
-for tools. A public key is trusted because it is pinned through a
-channel you already trust — in a real dispute, confirm this hex
-with the operator directly; do not trust a key merely because a
-checkpoint envelope carries it. The corresponding private key is
-never in any repository.
+is **retired**. It signed checkpoints `checkpoint_seq` 0 and 1
+for `log_id`
+`5f4bf2b400dc3de3c6b4798028592650ca606facabf5c7a43e68ecd90db1814e`
+(the proof-run-2/kernel log), and no checkpoint from `seq` 2
+on for any log. Its private key was unencrypted at rest; it has
+been re-wrapped passphrase-encrypted and is retained, encrypted,
+on the operator's machine pending the owner's decision to
+destroy it — it can sign nothing a conforming verifier will
+accept past the boundary above.
 
-Key rotation, if it happens, will be recorded here as a note
-naming the old key revoked, the new key, and the `checkpoint_seq`
-(per `log_id`) from which the new key signs. No rotation has
-occurred.
+The successor key (in `pubkey.txt`) signs from
+`checkpoint_seq` 2 on for that `log_id`. Its first checkpoint
+(seq 2, same anchored prefix: length 507) chains to the retired
+key's last checkpoint via `prev_checkpoint`, so the history's
+continuity is hash-chained across the rotation. Verify with the
+registry:
+
+```
+python3 tools/jqanchor.py verify <presented-log.jsonl> \
+    --checkpoints <path-to-this-repo-clone> \
+    --keys <path-to-this-repo-clone>
+```
 
 ## Publisher discipline
 
@@ -64,7 +97,8 @@ python3 tools/jqanchor.py verify <presented-log.jsonl> \
     --pubkey 1aa240acef0058b732e6093e3728e65a6d95a4178f77664ea92772bfb3072be5
 ```
 
-The command prints a JSON result and exits 0, 1 or 3. Outcomes
+The single-key form above remains valid for histories signed
+under one key. The command prints a JSON result and exits 0, 1 or 3. Outcomes
 (spec 15.5): `verified` (fully anchored, tail 0),
 `verified_to_anchor` (anchored prefix verified; `anchored_length`
 and `unanchored_tail` reported as distinct numbers — an extension
