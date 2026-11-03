@@ -24,11 +24,12 @@ limits — is spec section 15 in the kernel repository.
 Checkpoints in this repository are signed with Ed25519. Which
 key must have signed which checkpoint is stated by the **key
 registry**, `keys.json` at the repository root (format
-`jacquard/anchor-keys/1`, spec section 15.3 of the kernel
+`jacquard/anchor-keys/2`, spec section 15.3 of the kernel
 repository): per `log_id`, each key's `signs_from` /
 `signs_until` windows partition the checkpoint sequence, and a
 verifier refuses a checkpoint whose envelope key is not the
-scheduled key. Pin the registry (and the keys in it) through a
+scheduled key. A key that names a `log_id` in neither map
+holds a null window for that log — it signs nothing there. Pin the registry (and the keys in it) through a
 channel you already trust — in a real dispute, confirm the hexes
 with the operator directly; do not trust a key merely because a
 checkpoint envelope carries it. The corresponding private keys
@@ -108,23 +109,33 @@ names the first divergent checkpoint, or the history / internal
 stage that failed). Step-by-step drill, including the forged-log
 exercise: `docs/anchor-drill.md` in the kernel repository.
 
-## Registering a new log — current limitation (2026-11-03)
+## Registering a new log — the null-window rule (updated 2026-11-03)
 
 The `keys.json` registry schedules checkpoints per log: each
 key's `signs_from` / `signs_until` maps name the log_ids it
-signs for, by checkpoint sequence, and the windows of ALL
-registered keys must partition a log's checkpoint sequence.
-As built (spec 0.6), a key with no entry for a log defaults
-to signing it from seq 0 — so a log born after a rotation,
-signed by only the successor key, cannot be scheduled by
-this registry: both keys claim it from seq 0 and the windows
-collide. The gpu-queue live log (9cbf80c8…) is in exactly
-that state: its true window (successor from seq 0) is
-recorded in `keys.json` as a statement of fact, but
-`verify --keys` raises on it until the registry grammar
-learns to express "this key does not sign this log" (a null
-window). That grammar fix is named, owed work in the kernel
-repo. Until it lands, post-rotation logs verify via the
-explicit single-key form (`verify --pubkey <successor>`),
-which is how the gpu-queue live log's checkpoints were
-verified at its window close.
+signs for, by checkpoint sequence, and the windows of the
+participating keys must partition a log's checkpoint
+sequence. To register a new log, name it in the signing key's
+`signs_from` (and in the previous key's `signs_until` if the
+log changes hands); keys that do not sign the log simply do
+not name it.
+
+This section previously recorded a limitation: under the
+original grammar (`jacquard/anchor-keys/1`) a key with no
+entry for a log defaulted to signing it from seq 0, so a log
+born after a rotation — the gpu-queue live log (9cbf80c8…)
+was the live example — could not be scheduled by the
+registry at all and verified only via the explicit
+single-key form. **Fixed in kernel v1.0.1 (spec 0.6
+erratum 2):** the grammar is now `jacquard/anchor-keys/2`,
+in which a `log_id` omitted from BOTH of a key's maps is a
+null window. `keys.json` here has been republished as /2,
+byte-identical apart from the format string — its entries
+already stated the /2 reading as fact. The gpu-queue live
+log now verifies via `verify --keys` (91/91 over its
+checkpoints) and the pre-rotation proof log still verifies
+507/507 under the same registry, in all three
+implementations (Python, TypeScript, Rust). Verifiers accept
+/1 registries under the legacy rule and /2 registries under
+the null-window rule; tooling older than v1.0.1 refuses a /2
+registry by name rather than misreading it.
