@@ -108,16 +108,23 @@ names the first divergent checkpoint, or the history / internal
 stage that failed). Step-by-step drill, including the forged-log
 exercise: `docs/anchor-drill.md` in the kernel repository.
 
-## Registering a new log
+## Registering a new log — current limitation (2026-11-03)
 
-Checkpoints are scheduled per log by the `keys.json` registry:
-each key's `signs_from` / `signs_until` maps name the log_ids it
-signs for, by checkpoint sequence. A log born after a rotation
-is not covered by any default — before (or when) its first
-checkpoint is published, add its window to the active key's
-`signs_from` (e.g. the gpu-queue live log, 2026-11-03: the
-successor key signs it from seq 0). A registry whose windows
-for a log do not partition that log's checkpoint sequence
-fails verification loudly, by design. This registry commit is
-that published statement; a `register-window` verb in the
-kernel tooling is future work.
+The `keys.json` registry schedules checkpoints per log: each
+key's `signs_from` / `signs_until` maps name the log_ids it
+signs for, by checkpoint sequence, and the windows of ALL
+registered keys must partition a log's checkpoint sequence.
+As built (spec 0.6), a key with no entry for a log defaults
+to signing it from seq 0 — so a log born after a rotation,
+signed by only the successor key, cannot be scheduled by
+this registry: both keys claim it from seq 0 and the windows
+collide. The gpu-queue live log (9cbf80c8…) is in exactly
+that state: its true window (successor from seq 0) is
+recorded in `keys.json` as a statement of fact, but
+`verify --keys` raises on it until the registry grammar
+learns to express "this key does not sign this log" (a null
+window). That grammar fix is named, owed work in the kernel
+repo. Until it lands, post-rotation logs verify via the
+explicit single-key form (`verify --pubkey <successor>`),
+which is how the gpu-queue live log's checkpoints were
+verified at its window close.
