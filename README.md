@@ -111,11 +111,6 @@ exercise: `docs/anchor-drill.md` in the kernel repository.
 ## Registering a new log
 
 Checkpoints are scheduled per log by the `keys.json` registry:
-each keys / maps name the log_ids it
-
-## Registering a new log
-
-Checkpoints are scheduled per log by the `keys.json` registry:
 each key's `signs_from` / `signs_until` maps name the log_ids it
 signs for, by checkpoint sequence. A log born after a rotation
 is not covered by any default — before (or when) its first
